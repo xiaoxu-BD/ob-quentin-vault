@@ -8,13 +8,12 @@
 
 序列化和反序列化 三种工具的使用方式: ObjectMapper Hutool FastJson2
 
-<font style="color:#74B602;">真的不能再拖 这个流程模型的新建和发布了.</font>
 
 
 
 10.15
 
-<font style="color:#74B602;">模型新建发布已经OK完善,序列化知识正在修补 BindingResult的相关知识也在学习;</font>
+
 
 
 
