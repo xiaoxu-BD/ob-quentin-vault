@@ -287,6 +287,252 @@ public class SafeMessageConverter implements MessageConverter {
 
 <https://www.bookstack.cn/read/rocketmq-4.x-zh/>
 
+---
 
-> 更新: 2026-04-21 09:47:40  
+# 生产级配置
+
+## 1. 完整 application.yml
+
+```yaml
+rocketmq:
+  name-server: 192.168.1.101:9876;192.168.1.102:9876  # NameServer 集群
+  producer:
+    group: order-producer-group
+    send-message-timeout: 10000        # 发送超时(ms)
+    compress-message-body-threshold: 4096  # 消息体超过4KB压缩
+    max-message-size: 4194304          # 最大消息体 4MB
+    retry-times-when-send-failed: 2    # 同步发送失败重试次数
+    retry-times-when-send-async-failed: 2
+    retry-next-server: true            # 重试时切换 Broker
+  consumer:
+    pull-batch-size: 32                # 每次拉取消息数
+    consume-message-batch-max-size: 20 # 批量消费最大条数
+    max-reconsume-times: 3             # 最大重试次数(不要用默认16)
+    consume-timeout: 15                # 单条消息消费超时(分钟)
+    # 消费线程池
+    consume-thread-min: 20
+    consume-thread-max: 64
+```
+
+## 2. 事务消息 (Half Message → commit/rollback)
+
+适用场景: 下单扣库存、转账等需要本地事务和消息发送一致的场景。
+
+```java
+@Service
+public class OrderTransactionProducer {
+
+    @Autowired
+    private RocketMQTemplate rocketMQTemplate;
+
+    /**
+     * 发送事务消息
+     * 步骤: 发送 half message → 执行本地事务 → 根据结果 commit/rollback
+     */
+    public void sendTransactionOrder(Order order) {
+        Message<Order> msg = MessageBuilder.withPayload(order)
+            .setHeader("txId", order.getId())  // 事务回查标识
+            .build();
+
+        rocketMQTemplate.sendMessageInTransaction(
+            "order-tx-topic",            // topic
+            MessageBuilder.withPayload(order).build(),
+            order                        // arg: 传给 localTransactionExecuter
+        );
+    }
+
+    /**
+     * 本地事务执行器: half message 投递成功后执行
+     * 返回 COMMIT_MESSAGE / ROLLBACK_MESSAGE / UNKNOWN
+     */
+    @RocketMQTransactionListener
+    public class TransactionListenerImpl implements RocketMQLocalTransactionListener {
+
+        @Override
+        public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+            try {
+                Order order = (Order) arg;
+                orderService.createOrder(order);   // 本地事务(扣库存/写订单表)
+                return RocketMQLocalTransactionState.COMMIT;
+            } catch (Exception e) {
+                log.error("本地事务执行失败", e);
+                return RocketMQLocalTransactionState.ROLLBACK;
+            }
+        }
+
+        /**
+         * 回查: Broker 定期回查本地事务状态(超时/UNKNOWN 时触发)
+         * 返回 COMMIT / ROLLBACK / UNKNOWN(继续等待下次回查)
+         */
+        @Override
+        public RocketMQLocalTransactionState checkLocalTransaction(Message msg) {
+            String txId = (String) msg.getHeaders().get("txId");
+            Order order = orderMapper.selectById(txId);
+            if (order != null && order.getStatus() == OrderStatus.SUCCESS) {
+                return RocketMQLocalTransactionState.COMMIT;
+            }
+            return RocketMQLocalTransactionState.ROLLBACK;
+        }
+    }
+}
+```
+
+## 3. 顺序消息
+
+```java
+// 生产者: 用 selector 定义消息路由到哪个队列
+rocketMQTemplate.syncSendOrderly(
+    "order-seq-topic",
+    order,
+    order.getOrderId().toString(),   // hashKey, 同一 orderId 走同一队列
+    10000
+);
+
+// 消费者: 顺序消费
+@Component
+@RocketMQMessageListener(
+    topic = "order-seq-topic",
+    consumerGroup = "order-seq-consumer",
+    consumeMode = ConsumeMode.ORDERLY,       // 顺序消费
+    maxReconsumeTimes = 10
+)
+public class OrderSeqConsumer implements RocketMQListener<Order> {
+    @Override
+    public void onMessage(Order order) {
+        log.info("顺序消费: orderId={}", order.getOrderId());
+        // 处理逻辑
+    }
+}
+```
+
+## 4. 延迟消息
+
+RocketMQ 4.x 只支持 **固定延迟级别** (不支持任意延迟时间):
+
+```java
+// 延迟级别 1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
+// 对应 level: 1  2  3   4   5  6  7  8  9  10 11 12 13 14  15  16 17 18
+
+Message<String> msg = MessageBuilder.withPayload("delay-msg").build();
+rocketMQTemplate.syncSend("delay-topic", msg, 10000, delayLevel);  // delayLevel = 4 表示 30s 后投递
+
+// RocketMQ 5.x 支持任意时间延迟:
+Message<String> msg = MessageBuilder.withPayload("delay-msg")
+    .setHeader("DELAY", 30)    // 延迟30秒
+    .build();
+rocketMQTemplate.syncSend("delay-topic", msg);
+```
+
+## 5. 批量发送
+
+```java
+// 生产者批量发送(减少网络开销)
+List<Message> messages = new ArrayList<>();
+for (Order order : orderList) {
+    messages.add(MessageBuilder.withPayload(order).build());
+}
+rocketMQTemplate.syncSend("batch-topic", messages, 30000);
+
+// 消费者批量消费
+@Component
+@RocketMQMessageListener(
+    topic = "batch-topic",
+    consumerGroup = "batch-consumer",
+    consumeMessageBatchMaxSize = 20    // 一次最多消费20条
+)
+public class BatchConsumer implements RocketMQListener<List<MessageExt>> {
+    @Override
+    public void onMessage(List<MessageExt> messages) {
+        log.info("批量消费: {} 条", messages.size());
+        // 批量处理, 减少数据库交互次数
+    }
+}
+```
+
+## 6. 消费者幂等 + 重试兜底
+
+```java
+@Component
+@RocketMQMessageListener(
+    topic = "order-topic",
+    consumerGroup = "order-consumer",
+    maxReconsumeTimes = 3,           // 最多重试3次
+    consumeMode = ConsumeMode.CONCURRENTLY
+)
+public class OrderConsumer implements RocketMQListener<String> {
+
+    @Override
+    public void onMessage(String message) {
+        try {
+            Order order = JSON.parseObject(message, Order.class);
+
+            // 幂等: 用业务唯一键判断
+            String key = "mq:order:" + order.getOrderId();
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+                log.info("重复消费, 跳过: {}", order.getOrderId());
+                return;  // return = CONSUME_SUCCESS
+            }
+
+            // 业务处理
+            orderService.process(order);
+
+            // 标记已消费
+            redisTemplate.opsForValue().set(key, "1", 72, TimeUnit.HOURS);
+
+        } catch (Exception e) {
+            log.error("消费失败", e);
+            // 抛异常 = RECONSUME_LATER, 会触发重试
+            // return = CONSUME_SUCCESS, 消息丢弃
+            throw e;
+        }
+    }
+}
+```
+
+## 7. 死信队列处理
+
+```java
+// 当消息重试 maxReconsumeTimes 次后, 进入 %DLQ%consumerGroup
+// 需要单独消费死信队列做告警或人工介入
+
+@Component
+@RocketMQMessageListener(
+    topic = "%DLQ%order-consumer",   // 死信 Topic
+    consumerGroup = "dlq-handler-group"
+)
+public class DLQHandler implements RocketMQListener<MessageExt> {
+    @Override
+    public void onMessage(MessageExt msg) {
+        log.error("死信消息: topic={}, keys={}, body={}",
+            msg.getTopic(), msg.getKeys(), new String(msg.getBody()));
+        alertService.send("【RocketMQ死信】" + msg.getKeys());
+        // 持久化到数据库, 人工补偿
+    }
+}
+```
+
+## 8. 关键生产参数总结
+
+| 参数 | 推荐值 | 说明 |
+|------|--------|------|
+| `send-message-timeout` | 10000ms | 同步发送超时, 过小导致误判失败 |
+| `retry-times-when-send-failed` | 2 | 同步重试次数, 不宜过多 |
+| `retry-next-server` | true | 重试时切换 Broker, 分散压力 |
+| `max-reconsume-times` | 3-5 | 消费重试次数, 别用默认16(太慢) |
+| `consume-thread-min/max` | 20/64 | 消费线程池, 根据业务耗时调整 |
+| `pull-batch-size` | 32 | 每次拉取条数, 太大占用内存 |
+| `consume-message-batch-max-size` | 10-20 | 批量消费, 减少 DB 交互 |
+| `consume-timeout` | 15min | 单条消费超时(含重试内) |
+| `max-message-size` | 4MB | 消息体最大值 |
+| `namesrvAddr` | 多节点 | NameServer 至少2台 |
+
+## 9. 常见面试问题
+
+- **RocketMQ vs RabbitMQ vs Kafka？** RocketMQ 事务消息/延迟消息/消息回溯能力强, 适合电商金融; RabbitMQ 路由灵活(Exchange 多种类型); Kafka 吞吐最高适合大数据/日志
+- **如何保证消息不丢失？** 同步刷盘(syncFlush) + 同步发送(sendResult) + 消费端手动确认 + 主从复制(Master-Slave)
+- **事务消息原理？** Half Message → 执行本地事务 → commit/rollback; 超时未决状态由 Broker 回查本地事务
+- **消息积压怎么办？** 临时增加消费者实例 + 扩大消费线程池; 如果是消息格式问题(如当前文档的反序列化坑), 用 byte[] 接收绕过
+- **顺序消息怎么实现？** 同一业务 key 通过 hash 选择同一 queue, 消费端用 ORDERLY 模式, 该队列由单线程消费
+
+> 更新: 2026-04-21 09:47:40
 > 原文: <https://www.yuque.com/alice-hv75k/mtczog/lu3q34gdvp4xnlmh>
