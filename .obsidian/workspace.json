@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "interviewessential/DailyPlan.md",
+                "file": "interviewessential/设计模式.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "DailyPlan"
+              "title": "设计模式"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 251.5
+    "width": 311.5
   },
   "right": {
     "id": "95b44c5d67f336de",
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "interviewessential/DailyPlan.md",
+                "file": "interviewessential/设计模式.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "DailyPlan 的反向链接列表"
+              "title": "设计模式 的反向链接列表"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "2026假期安排/五一.md",
+                "file": "interviewessential/设计模式.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "五一 的出链列表"
+              "title": "设计模式 的出链列表"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "interviewessential/DailyPlan.md",
+                "file": "interviewessential/设计模式.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "DailyPlan 的大纲"
+              "title": "设计模式 的大纲"
             }
           },
           {
@@ -196,8 +196,14 @@
   },
   "active": "ef126ea7217d96fa",
   "lastOpenFiles": [
-    "interviewessential/工作流Flowable.md",
+    "interviewessential/assets/设计模式/file-20260504091654111.png",
+    "interviewessential/assets/设计模式",
+    "interviewessential/assets",
+    "interviewessential/日志.md",
+    "interviewessential/前端_.md",
+    "interviewessential/index.md",
     "interviewessential/DailyPlan.md",
+    "interviewessential/工作流Flowable.md",
     "interviewessential/Docker.md",
     "interviewessential/独孤九剑.md",
     "新建 文本文档.txt",
@@ -207,7 +213,6 @@
     "interviewessential/操作系统.md",
     "interviewessential/2026.md",
     "2026假期安排/五一.md",
-    "interviewessential/index.md",
     "interviewessential/计算机网络.md",
     "interviewessential/数据库MyBatis.md",
     "interviewessential/img/5AFlPzSSnirYljZt/1716298562636-0ccc6fe6-42da-42d3-ad17-35b7941f05d4-551682.png",
@@ -224,23 +229,18 @@
     "interviewessential/工作流.md",
     "interviewessential/img/8qlThIH7YWKBWiz6/1759997631893-22adaa7c-0a5b-4677-aaf7-2baf3335483c-299193.png",
     "interviewessential/img/8qlThIH7YWKBWiz6",
-    "interviewessential/日志.md",
     "interviewessential/img/wjQDSf3SDqi3Cg7y/1758620036948-a6f74aa6-da5e-4aef-89fc-aa97325c4213-856573.png",
     "interviewessential/img/wjQDSf3SDqi3Cg7y/1758621304130-f600a15c-4a8e-473e-8306-98c49bb3c8c8-686794.png",
     "interviewessential/img/wjQDSf3SDqi3Cg7y/1758621397934-25254fe7-e6ff-406f-ae4e-3d2ab2a7d3e9-700206.png",
     "interviewessential/img/wjQDSf3SDqi3Cg7y/1758620345593-6b5304f9-519b-4e1f-b783-b765d8b39ec3-330133.png",
     "interviewessential/img/wjQDSf3SDqi3Cg7y",
     "interviewessential/web.md",
-    "interviewessential/img/35KjPIXDtbkka6JH",
     "interviewessential/Linux.md",
     "interviewessential/JUC.md",
-    "interviewessential/img/nl1TmZoGEW9t3L-0",
     "interviewessential/Redis.md",
     "interviewessential/Java.md",
     "interviewessential/SpringCloud/Nacos.md",
     "interviewessential/SpringCloud/GateWay.md",
-    "interviewessential/SpringCloud/OpenFeign.md",
-    "interviewessential/SpringCloud/Sentinel.md",
-    "interviewessential/SpringCloud/Dubbo.md"
+    "interviewessential/SpringCloud/OpenFeign.md"
   ]
 }
