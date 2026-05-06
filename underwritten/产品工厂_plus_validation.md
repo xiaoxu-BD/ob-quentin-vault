@@ -116,8 +116,8 @@ public class PolicyOrderStateMachine extends BaseStateMachine<PolicyOrderState, 
                          ↓
                      ┌───────────────┐
                      │               │ 拒保
-     异步核保通过      │  UNDERWRITING  │ ──────→ CLOSED
-   ──────────────→    │               │
+     异步核保通过      │  UNDERWRITING │ ──────→ CLOSED
+   ──────────────→   │               │
                      └───────┬───────┘
                              │ 自动出单
                              ↓
